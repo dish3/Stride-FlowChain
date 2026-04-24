@@ -15,9 +15,6 @@ dist-ssr
 .tanstack/**
 .nitro
 *.local
-.env
-.env.*
-.git.broken-pointer
 
 # Wrangler / Cloudflare
 .wrangler/
