@@ -46,9 +46,9 @@ export function TransportSelector({
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Brain className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            UI Updated
-          </h2>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Transport Mode
+          </h3>
         </div>
         <button
           onClick={() => onSelect("auto")}

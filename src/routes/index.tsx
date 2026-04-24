@@ -327,7 +327,7 @@ function Index() {
                     </div>
                     {(current.disruption || current.trafficLevel > 0 || current.rainLevel > 0) && (
                       <Button onClick={handleOptimize} disabled={pending} variant="outline" className="mt-2 h-10 w-full border-primary/40 bg-primary/10 text-primary hover:bg-primary/20">
-                        {loadingAction === "optimize" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Sparkles className="mr-1.5 h-4 w-4" />Optimize Smart Route</>}
+                        {loadingAction === "optimize" ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Sparkles className="mr-1.5 h-4 w-4" />AI Optimize</>}
                       </Button>
                     )}
                     {(current.disruption || current.optimized) && (
