@@ -30,9 +30,11 @@ export function planMessages(r: RouteResult): AssistantMessage[] {
   const why =
     r.transport.startsWith("Air")
       ? `it's ${r.urgency.toLowerCase()}-urgency cargo and air gives the fastest door-to-door SLA`
-      : r.transport.startsWith("Train")
-        ? `the load is ${r.weight} kg — rail is the most cost-efficient way to move that much weight`
-        : `it's a ${r.weight} kg ${r.urgency.toLowerCase()}-urgency shipment and trucks give the best door-to-door flexibility`;
+      : r.transport.startsWith("Ship")
+        ? `this is an ocean route and sea freight is the cheapest (₹1.2/km) with the lowest CO₂ per km`
+        : r.transport.startsWith("Train")
+          ? `the load is ${r.weight} kg — rail is the most cost-efficient way to move that much weight`
+          : `it's a ${r.weight} kg ${r.urgency.toLowerCase()}-urgency shipment and trucks give the best door-to-door flexibility`;
 
   const lines: string[] = [
     `Plan ready for **${r.source} → ${r.destination}** (${r.distance.toLocaleString()} km).`,
@@ -46,11 +48,13 @@ export function planMessages(r: RouteResult): AssistantMessage[] {
 export function disruptionMessages(r: RouteResult, d: Disruption): AssistantMessage[] {
   const delay = +(r.eta - r.baseEta).toFixed(1);
   const headline =
-    d === "rain"
-      ? `Heads up — heavy rain just hit the corridor. ☔`
-      : d === "traffic"
-        ? `Traffic alert on the route. 🚧`
-        : `Road blockage reported on the corridor. ⛔`;
+    d === "storm"
+      ? `Severe storm detected on the ocean corridor! 🌊`
+      : d === "rain"
+        ? `Heads up — heavy rain just hit the corridor. ☔`
+        : d === "traffic"
+          ? `Traffic alert on the route. 🚧`
+          : `Road blockage reported on the corridor. ⛔`;
 
   const impact =
     delay > 0
@@ -194,6 +198,19 @@ export function chatReply(
       r.transport.startsWith("Truck")
         ? `Truck was chosen for door-to-door flexibility. At **${r.weight} kg** and **${r.urgency.toLowerCase()} urgency**, there's no need for terminal handover. Cost is ₹${truckCost.toLocaleString()} — the most economical option for this load.`
         : `Truck wasn't selected. The ${r.disruption ? "active disruption" : r.urgency === "High" ? "high urgency" : `${r.weight} kg weight`} made **${r.transport}** the better call for this corridor.`
+    )];
+  }
+
+  if (q.match(/why.*(ship|sea|ocean|boat|vessel)/)) {
+    const shipCost = Math.round(r.distance * COST_PER_KM["Ship 🚢"]);
+    const shipEta = +(r.distance / SPEED["Ship 🚢"] + 48).toFixed(1);
+    const shipCo2 = +(r.distance * CO2_PER_KM["Ship 🚢"]).toFixed(1);
+    return [user, makeAI(
+      r.transport.startsWith("Ship")
+        ? `Ship was chosen because this is an **ocean route** with **${r.urgency.toLowerCase()} urgency**. Sea freight costs only **₹${shipCost.toLocaleString()}** (₹1.2/km) — that's **${Math.round((1 - shipCost / airCost) * 100)}% cheaper than air** — and emits just **${shipCo2} kg CO₂**. The trade-off is ETA: **${shipEta} h** including 48h port handling.`
+        : (r as any).oceanRoute
+          ? `Ship wasn't selected here. ${r.urgency === "High" ? "High urgency demands air freight — too slow at " + shipEta + "h." : "The route analysis found **" + r.transport + "** to be the better option for current conditions."}`
+          : `Ship isn't viable for this route — it's a **land route** between ${srcRegion} and ${dstRegion}. Only air, train, and truck are options.`
     )];
   }
 

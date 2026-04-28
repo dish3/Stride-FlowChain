@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 
 interface ConfidenceGaugeProps {
@@ -13,8 +14,27 @@ export function ConfidenceGauge({ value }: ConfidenceGaugeProps) {
     v >= 80 ? "var(--primary)" : v >= 60 ? "var(--warning)" : "var(--destructive)";
   const label = v >= 80 ? "High confidence" : v >= 60 ? "Moderate" : "Low — review";
 
+  // Animated counter
+  const [displayValue, setDisplayValue] = useState(0);
+  useEffect(() => {
+    const duration = 600;
+    const start = performance.now();
+    const from = displayValue;
+    const to = v;
+    const animate = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayValue(Math.round(from + (to - from) * eased));
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [v]);
+
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-border bg-[var(--gradient-card)] p-5 shadow-[var(--shadow-card)]">
+    <div className="flex items-center gap-4 rounded-2xl border border-border bg-[var(--gradient-card)] p-5 shadow-[var(--shadow-card)] animate-scale-in">
       <div className="relative h-24 w-24 shrink-0">
         <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
           <circle
@@ -40,7 +60,7 @@ export function ConfidenceGauge({ value }: ConfidenceGaugeProps) {
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-2xl font-semibold tracking-tight" style={{ color }}>
-            {v}
+            {displayValue}
           </span>
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             %

@@ -1,10 +1,11 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   Activity,
   AlertTriangle,
   Anchor,
+  ArrowLeftRight,
   CloudRain,
   Construction,
   DollarSign,
@@ -51,6 +52,7 @@ import {
   planRouteWithTransport,
   simulateDisruption,
 } from "@/server/supply-chain.functions";
+import { saveShipment, logAnalyticsEvent } from "@/server/db.functions";
 import { MapView } from "@/components/supply-chain/MapView";
 import { StatCard } from "@/components/supply-chain/StatCard";
 import { RiskBadge } from "@/components/supply-chain/RiskBadge";
@@ -96,6 +98,8 @@ function Index() {
   const simulateFn = useServerFn(simulateDisruption);
   const optimizeFn = useServerFn(optimizeRoute);
   const whatIfFn = useServerFn(applyWhatIf);
+  const saveFn = useServerFn(saveShipment);
+  const logEventFn = useServerFn(logAnalyticsEvent);
 
   const [source, setSource] = useState(DEMO_SOURCE);
   const [destination, setDestination] = useState(DEMO_DESTINATION);
@@ -112,11 +116,15 @@ function Index() {
   // "auto" = let AI decide, or a specific Transport = user override
   const [selectedTransport, setSelectedTransport] = useState<Transport | "auto">("auto");
 
-  // Derived: what the AI would recommend for current inputs
-  const aiRecommended: Transport = (() => {
+  // Keep a ref to current for use in closures (fixes stale closure bug)
+  const currentRef = useRef(current);
+  currentRef.current = current;
+
+  // Derived: what the AI would recommend for current inputs (memoized)
+  const aiRecommended = useMemo<Transport>(() => {
     const dist = haversineKm(source, destination);
     return decideTransport(weight, urgency, dist, source, destination);
-  })();
+  }, [source, destination, weight, urgency]);
 
   const [messages, setMessages] = useState<AssistantMessage[]>(() => [introMessage()]);
   const pushMessages = (next: AssistantMessage[] | AssistantMessage | null) => {
@@ -125,8 +133,8 @@ function Index() {
     if (arr.length === 0) return;
     setMessages((prev) => [...prev, ...arr]);
   };
-  const handleUserMessage = (pair: [AssistantMessage, AssistantMessage]) => {
-    setMessages((prev) => [...prev, ...pair]);
+  const handleUserMessage = (msgs: AssistantMessage[]) => {
+    setMessages((prev) => [...prev, ...msgs]);
   };
 
   const run = (action: string, fn: () => Promise<void>) => {
@@ -158,6 +166,8 @@ function Index() {
       setPreOptimize(null);
       pushMessages(planMessages(res));
       router.invalidate();
+      // Auto-save to D1 database
+      saveFn({ data: { route: res } }).catch((e) => console.warn("[DB] Save failed:", e));
     });
 
   // Auto-plan demo scenario on first mount so judges see results immediately.
@@ -177,6 +187,8 @@ function Index() {
       setCurrent(res);
       setPreOptimize(null);
       pushMessages(disruptionMessages(res, disruption));
+      // Log disruption event
+      logEventFn({ data: { eventType: "disrupt", transport: res.transport, source: res.source, destination: res.destination, disruption } }).catch(() => {});
     });
 
   const handleOptimize = () =>
@@ -186,6 +198,9 @@ function Index() {
       const res = await optimizeFn({ data: { route: current } });
       setCurrent(res);
       pushMessages(optimizeMessages(current, res));
+      // Save optimized result and log event
+      saveFn({ data: { route: res } }).catch(() => {});
+      logEventFn({ data: { eventType: "optimize", transport: res.transport, source: res.source, destination: res.destination, metadata: { switched: current.transport !== res.transport } } }).catch(() => {});
     });
 
   const resetToOriginal = () => {
@@ -196,15 +211,18 @@ function Index() {
   };
 
   // Bug fix: what-if layers on top of current state (preserves disruption).
+  // Uses currentRef to avoid stale closure capturing old `current` in setTimeout.
   const whatIfTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleWhatIf = (next: { traffic: Intensity; rain: Intensity }) => {
     if (!current) return;
     setCurrent((c) => (c ? { ...c, trafficLevel: next.traffic, rainLevel: next.rain } : c));
     if (whatIfTimer.current) clearTimeout(whatIfTimer.current);
     whatIfTimer.current = setTimeout(() => {
+      const latest = currentRef.current;
+      if (!latest) return;
       run("whatif", async () => {
         const res = await whatIfFn({
-          data: { route: current, traffic: next.traffic, rain: next.rain },
+          data: { route: latest, traffic: next.traffic, rain: next.rain },
         });
         setCurrent(res);
         setPreOptimize(null);
@@ -220,7 +238,24 @@ function Index() {
     [],
   );
 
-  const regionMap = citiesByRegion();
+  // Auto-plan when transport mode changes (skip on first render)
+  const isFirstTransportChange = useRef(true);
+  useEffect(() => {
+    if (isFirstTransportChange.current) {
+      isFirstTransportChange.current = false;
+      return;
+    }
+    if (current) handlePlan();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTransport]);
+
+  // Swap source and destination
+  const handleSwapCities = useCallback(() => {
+    setSource(destination);
+    setDestination(source);
+  }, [source, destination]);
+
+  const regionMap = useMemo(() => citiesByRegion(), []);
 
   return (
     <main className="min-h-screen text-foreground md:pr-[360px]" style={{ background: "var(--gradient-hero)" }}>
@@ -241,9 +276,11 @@ function Index() {
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">AI Logistics OS</p>
             </div>
           </div>
-          <div className="hidden items-center gap-2 rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-xs text-muted-foreground sm:flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-            Live demo · Global network · 40 cities
+          <div className="hidden items-center gap-2 sm:flex">
+            <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">Dashboard</span>
+            <Link to="/history" className="rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground" id="nav-history">
+              📊 History
+            </Link>
           </div>
         </div>
       </header>
@@ -280,17 +317,32 @@ function Index() {
               </div>
               <div className="space-y-4">
                 <CitySelect label="Source" icon={<MapPin className="h-3.5 w-3.5" />} value={source} onChange={setSource} exclude={destination} regionMap={regionMap} />
+
+                {/* Swap cities */}
+                <div className="flex justify-center -my-1">
+                  <button
+                    type="button"
+                    onClick={handleSwapCities}
+                    disabled={pending}
+                    className="group flex h-8 w-8 items-center justify-center rounded-full border border-border bg-secondary/40 text-muted-foreground transition-all hover:border-primary/50 hover:bg-primary/10 hover:text-primary hover:rotate-180 disabled:opacity-40"
+                    aria-label="Swap source and destination"
+                    id="swap-cities-btn"
+                  >
+                    <ArrowLeftRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
                 <CitySelect label="Destination" icon={<MapPin className="h-3.5 w-3.5 text-primary" />} value={destination} onChange={setDestination} exclude={source} regionMap={regionMap} />
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Weight (kg)</Label>
-                  <Input type="number" min={1} max={50000} step={1} value={weight} onChange={(e) => setWeight(Math.round(Number(e.target.value)) || 1)} className="bg-secondary/40 border-border" />
+                  <Label htmlFor="weight-input" className="text-xs uppercase tracking-wider text-muted-foreground">Weight (kg)</Label>
+                  <Input id="weight-input" name="weight" type="number" min={1} max={50000} step={1} value={weight} onChange={(e) => setWeight(Math.round(Number(e.target.value)) || 1)} className="bg-secondary/40 border-border" />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Urgency</Label>
-                  <Select value={urgency} onValueChange={(v) => setUrgency(v as Urgency)}>
-                    <SelectTrigger className="bg-secondary/40 border-border"><SelectValue /></SelectTrigger>
+                  <Label htmlFor="urgency-select" className="text-xs uppercase tracking-wider text-muted-foreground">Urgency</Label>
+                  <Select name="urgency" value={urgency} onValueChange={(v) => setUrgency(v as Urgency)}>
+                    <SelectTrigger id="urgency-select" className="bg-secondary/40 border-border"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Low">Low — cost priority</SelectItem>
                       <SelectItem value="Medium">Medium — balanced</SelectItem>
@@ -299,9 +351,9 @@ function Index() {
                   </Select>
                 </div>
 
-                <Button onClick={() => handlePlan()} disabled={pending} className="group relative h-11 w-full overflow-hidden font-semibold text-[var(--brand-deep)] shadow-[var(--shadow-glow)] hover:shadow-[var(--shadow-elevated)]" style={{ background: "var(--gradient-mint)" }}>
+                <Button id="plan-route-btn" onClick={() => handlePlan()} disabled={pending} className="group relative h-11 w-full overflow-hidden font-semibold text-[var(--brand-deep)] shadow-[var(--shadow-glow)] hover:shadow-[var(--shadow-elevated)]" style={{ background: "var(--gradient-mint)" }}>
                   {loadingAction === "plan" ? <Loader2 className="h-4 w-4 animate-spin" /> : (
-                    <><Zap className="mr-1.5 h-4 w-4" />{selectedTransport === "auto" ? "Plan Route (AI)" : `Plan with ${selectedTransport.split(" ")[0]}`}</>
+                    <><Zap className="mr-1.5 h-4 w-4 transition-transform group-hover:scale-110" />{selectedTransport === "auto" ? "Plan Route (AI)" : `Plan with ${selectedTransport.split(" ")[0]}`}</>
                   )}
                 </Button>
 
@@ -367,17 +419,38 @@ function Index() {
 
           {/* Right column */}
           <div className="space-y-6">
-            <div className="grid h-[340px] overflow-hidden rounded-2xl border border-border bg-[var(--brand-deep)] shadow-[var(--shadow-card)] md:h-[420px]">
+            <div className="relative grid h-[340px] overflow-hidden rounded-2xl border border-border bg-[var(--brand-deep)] shadow-[var(--shadow-card)] md:h-[420px]">
               {current ? (
                 <MapView source={current.source} destination={current.destination} optimized={current.optimized} transport={current.transport} disrupted={!!current.disruption || current.trafficLevel >= 2 || current.rainLevel >= 2} />
               ) : (
                 <EmptyMap />
               )}
+              {/* Route summary badge */}
+              {current && (
+                <div className="absolute bottom-3 right-3 z-10 flex items-center gap-2 rounded-full border border-border/60 bg-[var(--brand-deep)]/90 px-3 py-1.5 text-xs backdrop-blur-sm animate-fade-in">
+                  <span className="font-medium">{current.source}</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="font-medium">{current.destination}</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-primary font-semibold">{current.distance.toLocaleString()} km</span>
+                  <span className="text-muted-foreground">·</span>
+                  <span>{current.transport.split(" ")[1]}</span>
+                </div>
+              )}
             </div>
 
-            {current ? (
+            {pending && loadingAction === "plan" && !current ? (
+              /* Skeleton loading state */
+              <div className="space-y-4">
+                <div className="shimmer h-16 rounded-2xl" />
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {[1,2,3,4].map(i => <div key={i} className="shimmer h-28 rounded-2xl" />)}
+                </div>
+                <div className="shimmer h-40 rounded-2xl" />
+              </div>
+            ) : current ? (
               <div className="space-y-4 animate-fade-up">
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-[var(--gradient-card)] p-4 shadow-[var(--shadow-card)]">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-[var(--gradient-card)] p-4 shadow-[var(--shadow-card)] animate-scale-in">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl text-xl" style={{ background: "var(--gradient-mint)" }}>
                       <span>{current.transport.split(" ")[1] ?? "🚚"}</span>
@@ -401,17 +474,17 @@ function Index() {
                 </div>
 
                 {current.warning && (
-                  <div className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm text-warning animate-fade-up">
+                  <div className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm text-warning animate-slide-in-right">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                     <p>{current.warning}</p>
                   </div>
                 )}
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <StatCard icon={Timer} label="ETA" value={`${current.eta} h`} hint={current.eta !== current.baseEta ? `${current.eta > current.baseEta ? "+" : ""}${(current.eta - current.baseEta).toFixed(1)}h vs plan` : "On schedule"} tone={current.eta > current.baseEta ? "warning" : "success"} />
-                  <StatCard icon={RouteIcon} label="Distance" value={`${current.distance.toLocaleString()} km`} hint={`${current.source} → ${current.destination}`} />
-                  <StatCard icon={DollarSign} label="Cost" value={`₹${current.cost.toLocaleString()}`} hint={`@ ₹${(current.cost / current.distance).toFixed(1)}/km`} />
-                  <StatCard icon={Leaf} label="CO₂" value={`${current.co2.toLocaleString()} kg`} hint="Estimated emissions" tone={current.co2 < 500 ? "success" : "default"} />
+                  <div className="stagger-1 animate-fade-up"><StatCard icon={Timer} label="ETA" value={`${current.eta} h`} hint={current.eta !== current.baseEta ? `${current.eta > current.baseEta ? "+" : ""}${(current.eta - current.baseEta).toFixed(1)}h vs plan` : "On schedule"} tone={current.eta > current.baseEta ? "warning" : "success"} /></div>
+                  <div className="stagger-2 animate-fade-up"><StatCard icon={RouteIcon} label="Distance" value={`${current.distance.toLocaleString()} km`} hint={`${current.source} → ${current.destination}`} /></div>
+                  <div className="stagger-3 animate-fade-up"><StatCard icon={DollarSign} label="Cost" value={`₹${current.cost.toLocaleString()}`} hint={`@ ₹${(current.cost / current.distance).toFixed(1)}/km`} /></div>
+                  <div className="stagger-4 animate-fade-up"><StatCard icon={Leaf} label="CO₂" value={`${current.co2.toLocaleString()} kg`} hint="Estimated emissions" tone={current.co2 < 500 ? "success" : "default"} /></div>
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
@@ -434,8 +507,26 @@ function Index() {
         </div>
       </section>
 
-      <footer className="border-t border-border/40 py-6 text-center text-xs text-muted-foreground">
-        FlowChain · AI-powered logistics decisions · Global network · 40 cities across 6 regions
+      <footer className="border-t border-border/40 py-6">
+        <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-4 md:flex-row md:justify-between md:px-8">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              FlowChain v1.0
+            </span>
+            <span className="hidden sm:inline">·</span>
+            <span className="hidden sm:inline">AI-powered logistics decisions</span>
+          </div>
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground/60">
+            <span>React 19</span>
+            <span>·</span>
+            <span>Gemini AI</span>
+            <span>·</span>
+            <span>Google Maps</span>
+            <span>·</span>
+            <span>40 cities · 6 regions</span>
+          </div>
+        </div>
       </footer>
 
       <AssistantPanel messages={messages} onUserMessage={handleUserMessage} route={current} />
@@ -458,14 +549,15 @@ function CitySelect({
   exclude?: string;
   regionMap: Record<string, string[]>;
 }) {
+  const selectId = `city-select-${label.toLowerCase()}`;
   return (
     <div className="space-y-1.5">
-      <Label className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+      <Label htmlFor={selectId} className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
         {icon}
         {label}
       </Label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="bg-secondary/40 border-border">
+      <Select name={selectId} value={value} onValueChange={onChange}>
+        <SelectTrigger id={selectId} className="bg-secondary/40 border-border">
           <SelectValue />
         </SelectTrigger>
         <SelectContent className="max-h-72">

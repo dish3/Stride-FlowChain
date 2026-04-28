@@ -10,6 +10,9 @@ import {
   vehicleLoopMs,
 } from "./useDrawProgress";
 
+// Static libraries array — MUST be outside component to prevent re-creation on every render
+const LIBRARIES: ("geometry")[] = ["geometry"];
+
 interface Props {
   source: string;
   destination: string;
@@ -107,14 +110,13 @@ export function GoogleMapsView({
 }: Props) {
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey,
-    libraries: ["geometry"],
+    libraries: LIBRARIES,
   });
 
   const a = CITIES[source];
   const b = CITIES[destination];
   const mapRef = useRef<google.maps.Map | null>(null);
-  const renderCount = useRef(0);
-  const [, forceRender] = useState(0);
+
 
   const isShip = isShipTransport(transport);
   const isAirTransport = transport?.includes("Air") ?? false;
@@ -208,10 +210,7 @@ export function GoogleMapsView({
     loopMs,
   );
 
-  useEffect(() => {
-    renderCount.current += 1;
-    forceRender(renderCount.current);
-  }, [drawProgress, vehicleProgress]);
+  // drawProgress and vehicleProgress already trigger re-renders via useState in their hooks
 
   if (loadError) {
     return (

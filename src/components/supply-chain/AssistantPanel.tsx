@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { Bot, MessageCircle, Send, Sparkles, X } from "lucide-react";
+import { Bot, MessageCircle, Send, Sparkles, X, Zap } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 import type { AssistantMessage } from "@/lib/assistant";
 import type { RouteResult } from "@/lib/supply-chain";
 import { chatReply } from "@/lib/assistant";
+import { geminiChat } from "@/server/gemini.functions";
 
 interface AssistantPanelProps {
   messages: AssistantMessage[];
-  onUserMessage: (msgs: [AssistantMessage, AssistantMessage]) => void;
+  onUserMessage: (msgs: AssistantMessage[]) => void;
   route: RouteResult | null;
 }
 
@@ -28,17 +30,28 @@ const TAG_TONE: Record<NonNullable<AssistantMessage["tag"]>, string> = {
   chat: "bg-primary/10 text-primary",
 };
 
-// Lightweight markdown — supports **bold** and \n newlines.
+const id = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+// Lightweight markdown — supports **bold**, *italic*, bullet points (•/- at start), and \n newlines.
 function renderInline(text: string) {
   return text.split("\n").map((line, li) => {
-    const parts = line.split(/(\*\*[^*]+\*\*)/g);
-    return (
+    // Handle bullet points
+    const isBullet = /^[•\-\*]\s/.test(line.trim());
+    const cleanLine = isBullet ? line.trim().replace(/^[•\-\*]\s/, "") : line;
+
+    const parts = cleanLine.split(/(\*\*[^*]+\*\*|\*[^*]+\*|_[^_]+_)/g);
+    const rendered = (
       <span key={li}>
+        {isBullet && <span className="text-primary mr-1.5">•</span>}
         {parts.map((p, i) =>
           p.startsWith("**") && p.endsWith("**") ? (
             <strong key={i} className="font-semibold text-foreground">
               {p.slice(2, -2)}
             </strong>
+          ) : (p.startsWith("*") && p.endsWith("*")) || (p.startsWith("_") && p.endsWith("_")) ? (
+            <em key={i} className="italic text-foreground/70">
+              {p.slice(1, -1)}
+            </em>
           ) : (
             <span key={i}>{p}</span>
           ),
@@ -46,6 +59,7 @@ function renderInline(text: string) {
         {li < text.split("\n").length - 1 && <br />}
       </span>
     );
+    return rendered;
   });
 }
 
@@ -54,6 +68,8 @@ const SUGGESTIONS = [
   "Why this transport?",
   "What's the CO₂ impact?",
   "Should I optimize?",
+  "Suggest a better route",
+  "What if there's a storm?",
 ];
 
 export function AssistantPanel({ messages, onUserMessage, route }: AssistantPanelProps) {
@@ -64,6 +80,10 @@ export function AssistantPanel({ messages, onUserMessage, route }: AssistantPane
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastSeenRef = useRef(messages.length);
+  // Track chat history for Gemini context
+  const chatHistoryRef = useRef<{ role: "user" | "model"; text: string }[]>([]);
+
+  const geminiFn = useServerFn(geminiChat);
 
   useEffect(() => {
     if (open) {
@@ -71,26 +91,82 @@ export function AssistantPanel({ messages, onUserMessage, route }: AssistantPane
       setUnread(0);
       requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+        inputRef.current?.focus();
       });
     } else {
       setUnread(messages.length - lastSeenRef.current);
     }
   }, [messages, open]);
 
-  const handleSend = (text?: string) => {
+  // Close panel with Escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && open) setOpen(false);
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [open]);
+
+  const handleSend = async (text?: string) => {
     const q = (text ?? input).trim();
-    if (!q) return;
+    if (!q || typing) return;
     setInput("");
 
-    // Show typing indicator briefly, then deliver reply.
-    setTyping(true);
-    const [userMsg, aiMsg] = chatReply(q, route);
-    onUserMessage([userMsg, aiMsg]);
+    // Create user message
+    const userMsg: AssistantMessage = {
+      id: id(),
+      role: "user",
+      ts: Date.now(),
+      text: q,
+    };
 
-    // Small delay so the typing indicator is visible.
-    setTimeout(() => {
+    // Immediately show user message
+    onUserMessage([userMsg]);
+
+    // Show typing indicator
+    setTyping(true);
+
+    try {
+      // Call Gemini AI via server function
+      const result = await geminiFn({
+        data: {
+          message: q,
+          history: chatHistoryRef.current,
+          route,
+        },
+      });
+
+      // Update chat history for context
+      chatHistoryRef.current = [
+        ...chatHistoryRef.current,
+        { role: "user" as const, text: q },
+        { role: "model" as const, text: result.reply },
+      ];
+
+      // Keep history manageable (last 20 exchanges)
+      if (chatHistoryRef.current.length > 40) {
+        chatHistoryRef.current = chatHistoryRef.current.slice(-40);
+      }
+
+      const aiMsg: AssistantMessage = {
+        id: id(),
+        role: "ai",
+        tag: "chat",
+        ts: Date.now(),
+        text: result.reply,
+      };
+
+      onUserMessage([aiMsg]);
+    } catch (error) {
+      console.error("Gemini chat error:", error);
+
+      // Fallback to rule-based reply
+      const [, fallbackReply] = chatReply(q, route);
+      fallbackReply.text = `${fallbackReply.text}\n\n_⚡ Powered by local intelligence (Gemini unavailable)_`;
+      onUserMessage([fallbackReply]);
+    } finally {
       setTyping(false);
-    }, 600);
+    }
   };
 
   const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -139,7 +215,10 @@ export function AssistantPanel({ messages, onUserMessage, route }: AssistantPane
             <div className="leading-tight">
               <p className="text-sm font-semibold">Flo</p>
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                AI logistics co-pilot
+                <span className="inline-flex items-center gap-1">
+                  <Zap className="h-2.5 w-2.5 text-primary" />
+                  Powered by Gemini AI
+                </span>
               </p>
             </div>
           </div>
@@ -206,14 +285,17 @@ export function AssistantPanel({ messages, onUserMessage, route }: AssistantPane
                 <Sparkles className="h-3.5 w-3.5 text-[var(--brand-deep)]" />
               </div>
               <div className="rounded-2xl rounded-tl-sm border border-border/60 bg-secondary/50 px-4 py-3">
-                <span className="flex gap-1">
-                  {[0, 1, 2].map((i) => (
-                    <span
-                      key={i}
-                      className="h-1.5 w-1.5 rounded-full bg-primary/60"
-                      style={{ animation: `bounce 1s ease-in-out ${i * 0.15}s infinite` }}
-                    />
-                  ))}
+                <span className="flex items-center gap-2">
+                  <span className="flex gap-1">
+                    {[0, 1, 2].map((i) => (
+                      <span
+                        key={i}
+                        className="h-1.5 w-1.5 rounded-full bg-primary/60"
+                        style={{ animation: `bounce 1s ease-in-out ${i * 0.15}s infinite` }}
+                      />
+                    ))}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">Gemini is thinking…</span>
                 </span>
               </div>
             </div>
@@ -231,7 +313,8 @@ export function AssistantPanel({ messages, onUserMessage, route }: AssistantPane
                 <button
                   key={s}
                   onClick={() => handleSend(s)}
-                  className="rounded-full border border-border/60 bg-secondary/40 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
+                  disabled={typing}
+                  className="rounded-full border border-border/60 bg-secondary/40 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary disabled:opacity-50"
                 >
                   {s}
                 </button>
@@ -245,16 +328,20 @@ export function AssistantPanel({ messages, onUserMessage, route }: AssistantPane
           <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-secondary/40 px-3 py-2 focus-within:border-primary/50 focus-within:bg-secondary/60 transition-colors">
             <input
               ref={inputRef}
+              id="flo-chat-input"
+              name="flo-chat-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKey}
               placeholder={route ? "Ask Flo anything…" : "Plan a route first, then ask me…"}
-              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 outline-none"
+              disabled={typing}
+              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/60 outline-none disabled:opacity-50"
               aria-label="Chat with Flo"
+              autoComplete="off"
             />
             <button
               onClick={() => handleSend()}
-              disabled={!input.trim()}
+              disabled={!input.trim() || typing}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-[var(--brand-deep)] transition-opacity disabled:opacity-30 hover:opacity-90"
               aria-label="Send message"
             >
@@ -262,7 +349,7 @@ export function AssistantPanel({ messages, onUserMessage, route }: AssistantPane
             </button>
           </div>
           <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
-            Flo knows your current route · Press Enter to send
+            Flo is powered by <span className="text-primary font-medium">Gemini AI</span> · Press Enter to send
           </p>
         </div>
       </aside>

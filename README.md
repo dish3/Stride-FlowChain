@@ -59,6 +59,18 @@ FlowChain is an **AI-powered logistics decision system** that helps you plan, si
 - Great-circle arc for Air routes · Curved sea lane for Ship routes
 - Vehicle follows actual road path, rotates to face direction of travel
 - Satellite / Hybrid / Roadmap toggle on Google Maps
+- **Route summary badge** overlaid on map (city pair · distance · transport icon)
+
+### ✨ UX Polish
+- **Inter font** from Google Fonts for premium typography
+- **Swap cities** button with 180° rotation animation
+- **Auto-plan** on transport mode change — no need to re-click Plan Route
+- **Shimmer loading skeletons** while plan computes
+- **Staggered entrance animations** on stat cards (fade-up with delays)
+- **Animated confidence counter** — counts up smoothly with ease-out easing
+- **Weather auto-refresh** every 5 minutes with last-updated timestamp
+- **Escape key** closes chat panel · auto-focus on chat input
+- Custom scrollbars, selection color, focus outlines
 
 ### 🌦️ Live Weather
 - Real-time weather at source and destination via **OpenWeatherMap**
@@ -156,17 +168,19 @@ npm install
 
 ### Environment Variables
 
-Create a `.env` file in the project root:
+Copy `.env.example` to `.env` in the project root and fill in the keys you need:
 
 ```env
 VITE_MAPTILER_KEY=your_maptiler_key
 VITE_GOOGLE_MAPS_KEY=your_google_maps_key
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
 | Variable | Where to get it |
 |---|---|
 | `VITE_MAPTILER_KEY` | Free key at [maptiler.com](https://www.maptiler.com/) |
 | `VITE_GOOGLE_MAPS_KEY` | Enable **Maps JavaScript API** + **Directions API** at [console.cloud.google.com](https://console.cloud.google.com/) |
+| `GEMINI_API_KEY` | Create a Gemini API key in Google AI Studio |
 
 > **Note:** The app works without API keys — it falls back to a built-in SVG world map.
 

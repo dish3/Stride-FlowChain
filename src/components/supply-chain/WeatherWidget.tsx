@@ -20,27 +20,42 @@ interface WeatherWidgetProps {
   destination: string;
 }
 
-const OWM_KEY = "b6907d289e10d714a6e88b30761fae22"; // OpenWeatherMap free demo key
+// WMO weather codes → human-readable descriptions & categories
+function decodeWMO(code: number): { main: string; description: string; icon: string } {
+  if (code === 0) return { main: "Clear", description: "clear sky", icon: "01d" };
+  if (code <= 3) return { main: "Clouds", description: code === 1 ? "mainly clear" : code === 2 ? "partly cloudy" : "overcast", icon: "03d" };
+  if (code <= 49) return { main: "Fog", description: "fog", icon: "50d" };
+  if (code <= 59) return { main: "Drizzle", description: "drizzle", icon: "09d" };
+  if (code <= 69) return { main: "Rain", description: code <= 63 ? "light rain" : "heavy rain", icon: "10d" };
+  if (code <= 79) return { main: "Snow", description: "snow", icon: "13d" };
+  if (code <= 82) return { main: "Rain", description: "rain showers", icon: "09d" };
+  if (code <= 86) return { main: "Snow", description: "snow showers", icon: "13d" };
+  if (code === 95) return { main: "Thunderstorm", description: "thunderstorm", icon: "11d" };
+  if (code >= 96) return { main: "Thunderstorm", description: "thunderstorm with hail", icon: "11d" };
+  return { main: "Clear", description: "clear", icon: "01d" };
+}
 
 async function fetchWeather(city: string): Promise<WeatherData | null> {
   const c = CITIES[city];
   if (!c) return null;
   try {
     const res = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?lat=${c.lat}&lon=${c.lng}&appid=${OWM_KEY}&units=metric`,
+      `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,visibility&timezone=auto`,
     );
     if (!res.ok) return null;
     const d = await res.json();
+    const current = d.current;
+    const { main, description, icon } = decodeWMO(current.weather_code ?? 0);
     return {
-      temp: Math.round(d.main.temp),
-      feels_like: Math.round(d.main.feels_like),
-      humidity: d.main.humidity,
-      wind_speed: Math.round(d.wind.speed * 3.6), // m/s → km/h
-      visibility: Math.round((d.visibility ?? 10000) / 1000),
-      description: d.weather[0]?.description ?? "",
-      icon: d.weather[0]?.icon ?? "01d",
-      main: d.weather[0]?.main ?? "Clear",
-      city: d.name ?? city,
+      temp: Math.round(current.temperature_2m),
+      feels_like: Math.round(current.apparent_temperature),
+      humidity: current.relative_humidity_2m,
+      wind_speed: Math.round(current.wind_speed_10m),
+      visibility: Math.round((current.visibility ?? 10000) / 1000),
+      description,
+      icon,
+      main,
+      city,
     };
   } catch {
     return null;
@@ -51,7 +66,7 @@ function WeatherIcon({ main, className }: { main: string; className?: string }) 
   const cls = cn("shrink-0", className);
   if (main === "Rain" || main === "Drizzle") return <CloudRain className={cls} />;
   if (main === "Snow") return <CloudSnow className={cls} />;
-  if (main === "Clouds") return <Cloud className={cls} />;
+  if (main === "Clouds" || main === "Fog") return <Cloud className={cls} />;
   if (main === "Thunderstorm") return <AlertTriangle className={cls} />;
   return <Sun className={cls} />;
 }
@@ -59,7 +74,7 @@ function WeatherIcon({ main, className }: { main: string; className?: string }) 
 function weatherTone(main: string): string {
   if (main === "Rain" || main === "Drizzle" || main === "Thunderstorm") return "text-sky-400";
   if (main === "Snow") return "text-blue-300";
-  if (main === "Clouds") return "text-slate-400";
+  if (main === "Clouds" || main === "Fog") return "text-slate-400";
   return "text-amber-400";
 }
 
@@ -131,19 +146,33 @@ export function WeatherWidget({ source, destination }: WeatherWidgetProps) {
   const [dstWeather, setDstWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastFetch, setLastFetch] = useState<string>("");
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchKey = `${source}|${destination}`;
 
-  useEffect(() => {
-    if (fetchKey === lastFetch) return;
+  const doFetch = () => {
     setLoading(true);
-    setLastFetch(fetchKey);
     Promise.all([fetchWeather(source), fetchWeather(destination)]).then(([s, d]) => {
       setSrcWeather(s);
       setDstWeather(d);
       setLoading(false);
+      setLastUpdated(new Date());
     });
+  };
+
+  useEffect(() => {
+    if (fetchKey !== lastFetch) {
+      setLastFetch(fetchKey);
+      doFetch();
+    }
   }, [source, destination, fetchKey, lastFetch]);
+
+  // Auto-refresh every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(doFetch, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source, destination]);
 
   // Overall weather severity for the route
   const hasSevere = [srcWeather, dstWeather].some(
@@ -178,7 +207,9 @@ export function WeatherWidget({ source, destination }: WeatherWidgetProps) {
               Clear
             </span>
           )}
-          <span className="text-[10px] text-muted-foreground">Live</span>
+          <span className="text-[10px] text-muted-foreground">
+            {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Live"}
+          </span>
           <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
         </div>
       </div>
