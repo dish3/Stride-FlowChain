@@ -1,289 +1,233 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/FlowChain-AI%20Logistics%20OS-00d4aa?style=for-the-badge&logo=truck&logoColor=white" alt="FlowChain" />
-</p>
+# FlowChain - AI Smart Supply Chain
 
-<h1 align="center">FlowChain — AI Smart Supply Chain</h1>
+FlowChain is an AI-powered logistics decision system for planning, simulating, and optimizing freight routes across a global city network. It recommends a transport mode, estimates ETA, cost, CO2 emissions, risk, and explains decisions through the Flo assistant.
 
-<p align="center">
-  Plan freight routes across 40 global cities, simulate real-world disruptions,<br/>
-  and let AI optimize transport mode, ETA, and cost — instantly.
-</p>
+The project is now split into a standalone React client, an Express API server, and shared supply-chain logic.
 
-<p align="center">
-  <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white" alt="React 19" />
-  <img src="https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Vite-7-646CFF?logo=vite&logoColor=white" alt="Vite 7" />
-  <img src="https://img.shields.io/badge/TailwindCSS-4-06B6D4?logo=tailwindcss&logoColor=white" alt="Tailwind 4" />
-  <img src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers" />
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License" />
-</p>
+## Features
 
----
+- AI route planning across 40 global cities.
+- Transport mode recommendation for Air, Ship, Train, and Truck.
+- Manual transport override with side-by-side ETA, cost, and CO2 comparison.
+- Disruption simulation for traffic, rain, blockage, and storm events.
+- What-if controls for traffic and rain intensity.
+- AI re-optimization after disruption.
+- Flo conversational assistant powered by Gemini when the server API key is configured.
+- Shipment history, analytics events, and dashboard stats backed by local SQLite.
+- MapLibre/MapTiler route view with Google Maps support when API keys are available.
+- Client-side fallback planner when the API server is unavailable.
 
-## ✨ What is FlowChain?
+## Current Architecture
 
-FlowChain is an **AI-powered logistics decision system** that helps you plan, simulate, and optimize freight shipments across a global city network. It selects the right transport mode based on geography, urgency, weight, and live conditions — and explains every decision in plain English through a conversational AI co-pilot named **Flo**.
-
----
-
-## 🚀 Features
-
-### 🤖 AI Route Planning
-- Selects optimal transport from **Air ✈️ · Ship 🚢 · Train 🚆 · Truck 🚛** based on:
-  - Urgency (High / Medium / Low)
-  - Cargo weight
-  - Route distance & geography (ocean vs land — Train/Truck blocked on ocean routes)
-- Calculates **ETA**, **cost (₹/km)**, and **CO₂ emissions** for every mode
-- Confidence score (0–100%) reflecting decision stability
-
-### 🔧 Manual Transport Override
-- Pick any transport mode yourself and see live cost, ETA, and CO₂
-- Side-by-side comparison table for all 4 modes
-- Best values highlighted in green · Impossible modes shown as N/A
-
-### ⚡ Disruption Simulation
-- Inject real-world events:
-  - **Land routes** → Traffic · Rain · Blockage
-  - **Ocean routes** → Storm · Rain · Port Block
-- ETA, risk level, and confidence recalculate instantly
-- What-if sliders for continuous traffic/rain intensity (0–High)
-
-### 🧠 AI Re-optimization
-- After a disruption, AI scores all viable modes with disruption penalties
-- Shows rejected alternatives with reasons (e.g. *"Road blockage makes truck unreliable"*)
-- Before / After comparison panel with time saved, cost delta, CO₂ reduction
-
-### 🗺️ Live Maps
-- **MapTiler** — dark vector map with animated route drawing and moving vehicle emoji
-- **Google Maps** — real road directions via Directions API for Truck/Train routes
-- Great-circle arc for Air routes · Curved sea lane for Ship routes
-- Vehicle follows actual road path, rotates to face direction of travel
-- Satellite / Hybrid / Roadmap toggle on Google Maps
-- **Route summary badge** overlaid on map (city pair · distance · transport icon)
-
-### ✨ UX Polish
-- **Inter font** from Google Fonts for premium typography
-- **Swap cities** button with 180° rotation animation
-- **Auto-plan** on transport mode change — no need to re-click Plan Route
-- **Shimmer loading skeletons** while plan computes
-- **Staggered entrance animations** on stat cards (fade-up with delays)
-- **Animated confidence counter** — counts up smoothly with ease-out easing
-- **Weather auto-refresh** every 5 minutes with last-updated timestamp
-- **Escape key** closes chat panel · auto-focus on chat input
-- Custom scrollbars, selection color, focus outlines
-
-### 🌦️ Live Weather
-- Real-time weather at source and destination via **OpenWeatherMap**
-- Temperature · Humidity · Wind speed · Visibility
-- Severity badges (Severe / Adverse / Clear) with logistics impact warnings
-
-### 💬 Flo — AI Conversational Co-pilot
-- Narrates every plan, disruption, and optimization in real time
-- Full chat interface — type any question and get context-aware answers
-- Understands: *"Why air?" · "Compare all modes" · "What's the CO₂ impact?" · "Should I optimize?"*
-- Quick-question chips for one-click answers
-
-### 📊 Decision Timeline
-- 5-step visual timeline: **Shipment → AI Selection → Disruption → Impact → Optimization**
-- Each step shows current status (done / active / pending)
-
----
-
-## 🏗️ Tech Stack
-
-| Layer | Technology |
+| Area | Stack |
 |---|---|
-| **Framework** | [TanStack Start](https://tanstack.com/start) (SSR, React 19) |
-| **Routing** | TanStack Router (file-based) |
-| **Styling** | Tailwind CSS v4 + shadcn/ui (Radix UI, New York style) |
-| **Maps** | MapLibre GL + Google Maps JS API |
-| **Directions** | Google Directions API |
-| **Weather** | OpenWeatherMap API |
-| **Server Functions** | TanStack Start `createServerFn` |
-| **Deployment** | Cloudflare Workers (via `@cloudflare/vite-plugin`) |
-| **Language** | TypeScript 5.8 |
-| **Build** | Vite 7 |
+| Client | React 19, TypeScript, Vite 7 |
+| Routing | TanStack Router |
+| Data fetching | TanStack Query plus local API wrappers |
+| UI | Tailwind CSS 4, shadcn/ui, Radix UI, lucide-react |
+| Maps | MapLibre GL, MapTiler, Google Maps JavaScript API |
+| Server | Express, TypeScript, tsx |
+| AI | Google Gemini API |
+| Database | better-sqlite3 local SQLite database |
+| Shared logic | TypeScript modules in `shared/` and client/server adapters |
 
----
+## Project Structure
 
-## 🌍 City Network
-
-40 cities across 6 regions:
-
-| Region | Cities |
-|---|---|
-| 🇮🇳 **India** | Mumbai · Delhi · Bangalore · Chennai · Kolkata · Hyderabad · Pune · Ahmedabad · Jaipur · Surat |
-| 🌏 **Asia** | Shanghai · Beijing · Tokyo · Singapore · Bangkok · Seoul · Kuala Lumpur · Jakarta · Hong Kong |
-| 🇪🇺 **Europe** | London · Paris · Frankfurt · Amsterdam · Rotterdam · Madrid · Milan · Warsaw |
-| 🌎 **Americas** | New York · Los Angeles · Chicago · São Paulo · Mexico City · Toronto |
-| 🕌 **Middle East** | Dubai · Riyadh · Istanbul |
-| 🌍 **Africa** | Lagos · Nairobi · Cairo · Johannesburg |
-
----
-
-## 🧮 Transport Decision Logic
-
-```
-Ocean route (crosses Arabian Sea, Indian Ocean, Atlantic, Pacific, etc.)
-  ├── High urgency          → Air ✈️
-  ├── Both cities have ports → Ship 🚢
-  └── No port access        → Air ✈️
-
-Land route
-  ├── High urgency          → Air ✈️
-  ├── Distance > 4,000 km   → Air ✈️
-  ├── Weight > 5,000 kg     → Train 🚆
-  ├── Weight > 1,000 kg AND distance > 400 km → Train 🚆
-  └── Otherwise             → Truck 🚛
+```text
+.
++-- client/
+|   +-- src/
+|   |   +-- components/
+|   |   |   +-- supply-chain/        # FlowChain app panels, map views, controls
+|   |   |   +-- ui/                  # shadcn/ui primitives
+|   |   +-- hooks/                   # Client hooks
+|   |   +-- lib/                     # API client, assistant, DB helpers, utilities
+|   |   +-- routes/                  # TanStack Router pages
+|   |   +-- main.tsx                 # Client entry
+|   |   +-- styles.css               # Tailwind/design system
+|   +-- package.json
+|   +-- vite.config.ts
++-- server/
+|   +-- src/
+|   |   +-- index.ts                 # Express server and API routes
+|   |   +-- supply-chain.ts          # Route planning API handlers
+|   |   +-- gemini.ts                # Flo/Gemini API handler
+|   |   +-- db.ts                    # SQLite connection
+|   |   +-- db-functions.ts          # Shipment/history/stat handlers
+|   +-- package.json
++-- shared/
+|   +-- supply-chain.ts              # Shared logistics types and pure logic
++-- src/                             # Legacy/source compatibility files
++-- migrations/                      # Database migration assets
++-- scripts/                         # Utility scripts
++-- package.json                     # Root workspace-style scripts
++-- tsconfig.json
 ```
 
-> Ocean routes are detected by region-pair rules and explicit city-pair overrides. India ↔ Middle East, India ↔ Europe, Asia ↔ Europe, Africa ↔ Europe, and anything ↔ Americas are all ocean routes.
-
----
-
-## 📐 Key Calculations
-
-| Metric | Formula |
-|---|---|
-| **ETA** | `distance / speed + overhead` — Air: +2h, Ship: +48h port handling, Land: +2h |
-| **Cost** | `distance × cost_per_km` — Air: ₹12, Ship: ₹1.2, Train: ₹4, Truck: ₹6 |
-| **CO₂** | `distance × co2_per_km` — Air: 0.85, Ship: 0.015, Train: 0.05, Truck: 0.18 kg/km |
-| **Confidence** | Base 92% adjusted for urgency, risk level, disruption, and optimization |
-| **Optimizer** | `eta × 10 + cost × 0.05 + disruption_penalty` — lowest score wins |
-
----
-
-## ⚙️ Getting Started
+## Getting Started
 
 ### Prerequisites
 
-- **Node.js** 18+
-- **npm** or **bun**
+- Node.js 18+
+- npm
 
-### Install
+### Install dependencies
+
+From the repository root:
 
 ```bash
-npm install
+npm run install:all
 ```
 
-### Environment Variables
+This installs dependencies for the root project, `client/`, and `server/`.
 
-Copy `.env.example` to `.env` in the project root and fill in the keys you need:
+### Configure environment
+
+Create the client env file:
+
+```bash
+cp client/.env.example client/.env
+```
+
+Client variables:
 
 ```env
-VITE_MAPTILER_KEY=your_maptiler_key
-VITE_GOOGLE_MAPS_KEY=your_google_maps_key
-GEMINI_API_KEY=your_gemini_api_key
+VITE_API_URL=http://localhost:3001
+VITE_MAPTILER_KEY=your_maptiler_key_here
+VITE_GOOGLE_MAPS_KEY=your_google_maps_key_here
 ```
 
-| Variable | Where to get it |
-|---|---|
-| `VITE_MAPTILER_KEY` | Free key at [maptiler.com](https://www.maptiler.com/) |
-| `VITE_GOOGLE_MAPS_KEY` | Enable **Maps JavaScript API** + **Directions API** at [console.cloud.google.com](https://console.cloud.google.com/) |
-| `GEMINI_API_KEY` | Create a Gemini API key in Google AI Studio |
-
-> **Note:** The app works without API keys — it falls back to a built-in SVG world map.
-
-### Run
+Create the server env file:
 
 ```bash
-npm run dev
+cp server/.env.example server/.env
 ```
 
-Open [http://localhost:8080](http://localhost:8080)
+Server variables:
+
+```env
+PORT=3001
+GEMINI_API_KEY=your_gemini_api_key_here
+MAPTILER_KEY=your_maptiler_key_here
+```
+
+API keys are optional for basic route planning. Without the API server, the client falls back to local route-planning logic for core planning actions.
+
+### Run locally
+
+Start the API server:
+
+```bash
+npm run dev:server
+```
+
+In a second terminal, start the client:
+
+```bash
+npm run dev:client
+```
+
+The client runs on the Vite dev URL, usually:
+
+```text
+http://localhost:5173
+```
+
+The API server runs on:
+
+```text
+http://localhost:3001
+```
 
 ### Build
 
-```bash
-npm run build
-```
-
-### Deploy to Cloudflare Workers
+Build the client:
 
 ```bash
-npx wrangler deploy
+npm run build:client
 ```
 
----
+Build the server:
 
-## 📁 Project Structure
-
-```
-src/
-├── routes/
-│   ├── __root.tsx                    # HTML shell, global meta
-│   └── index.tsx                     # Main page — all state and layout
-├── components/
-│   ├── supply-chain/
-│   │   ├── AIExplanationPanel.tsx    # AI reasoning bullets
-│   │   ├── AssistantPanel.tsx        # Flo chat panel
-│   │   ├── ComparisonPanel.tsx       # Before/after optimization
-│   │   ├── ConfidenceGauge.tsx       # SVG arc confidence meter
-│   │   ├── DecisionTimeline.tsx      # 5-step decision flow
-│   │   ├── ImpactPanel.tsx           # Time/cost/CO₂ delta cards
-│   │   ├── MapView.tsx              # Map provider switcher
-│   │   ├── RiskBadge.tsx            # Low/Medium/High badge
-│   │   ├── StatCard.tsx             # ETA/Distance/Cost/CO₂ cards
-│   │   ├── TransportSelector.tsx    # Manual mode picker + comparison table
-│   │   ├── WeatherWidget.tsx        # Live weather at source/destination
-│   │   ├── WhatIfControls.tsx       # Traffic/rain intensity sliders
-│   │   └── map/
-│   │       ├── GoogleMapsView.tsx   # Google Maps with real directions
-│   │       ├── MapLibreView.tsx     # MapTiler with road routing
-│   │       └── useDrawProgress.ts   # Route animation hooks
-│   └── ui/                          # shadcn/ui primitives (Radix-based)
-├── lib/
-│   ├── assistant.ts                 # Flo message factory + chat reply engine
-│   ├── supply-chain.ts             # Core types, constants, pure logic functions
-│   └── utils.ts                     # cn() helper
-├── hooks/                           # Custom React hooks
-├── server/
-│   └── supply-chain.functions.ts    # Server functions (planRoute, optimizeRoute, etc.)
-├── router.tsx                       # TanStack Router configuration
-├── routeTree.gen.ts                 # Auto-generated route tree
-└── styles.css                       # Design system — oklch colors, gradients, animations
+```bash
+npm run build:server
 ```
 
----
+## API Routes
 
-## 🎯 Demo Flow
+The Express server exposes these endpoints under `/api`:
 
-1. **Open the app** — Mumbai → Dubai auto-loads with AI recommendation
-2. **Change cities** — pick any of 40 global cities across 6 regions
-3. **Switch transport** — use the Transport Mode selector to compare all options
-4. **Check weather** — live conditions at source and destination
-5. **Simulate disruption** — click Traffic / Rain / Block (or Storm for ocean routes)
-6. **AI Optimize** — watch the AI re-evaluate all modes and explain its choice
-7. **Ask Flo** — type *"compare all modes"* or *"why ship?"* in the chat panel
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/api/planRoute` | Generate an AI transport recommendation |
+| POST | `/api/planRouteWithTransport` | Plan using a manually selected transport mode |
+| POST | `/api/simulateDisruption` | Apply a traffic, rain, blockage, or storm event |
+| POST | `/api/applyWhatIf` | Apply traffic/rain intensity sliders |
+| POST | `/api/optimizeRoute` | Re-score viable modes after disruption |
+| POST | `/api/geminiChat` | Ask Flo a context-aware question |
+| POST | `/api/saveShipment` | Save a shipment plan |
+| POST | `/api/logAnalyticsEvent` | Store analytics events |
+| GET | `/api/getShipments` | List saved shipment history |
+| GET | `/api/getShipmentById` | Load one saved shipment |
+| POST | `/api/deleteShipment` | Delete a saved shipment |
+| GET | `/api/getDashboardStats` | Load dashboard summary stats |
 
----
+## Transport Decision Logic
 
-## 🛠️ Scripts
+```text
+Ocean route
+  - High urgency -> Air
+  - Both cities have ports -> Ship
+  - No port access -> Air
+
+Land route
+  - High urgency -> Air
+  - Distance > 4,000 km -> Air
+  - Weight > 5,000 kg -> Train
+  - Weight > 1,000 kg and distance > 400 km -> Train
+  - Otherwise -> Truck
+```
+
+## Key Calculations
+
+| Metric | Formula |
+|---|---|
+| ETA | `distance / speed + overhead` |
+| Cost | `distance * cost_per_km` |
+| CO2 | `distance * co2_per_km` |
+| Confidence | Base confidence adjusted by urgency, risk, disruption, and optimization |
+| Optimizer | Scores viable modes by ETA, cost, and disruption penalties |
+
+## Demo Flow
+
+1. Open the client app.
+2. Pick source and destination cities.
+3. Set urgency and cargo weight.
+4. Compare recommended and manual transport modes.
+5. Simulate disruption or adjust what-if controls.
+6. Run optimization and review the before/after impact.
+7. Ask Flo about the decision or saved route history.
+
+## Scripts
 
 | Command | Description |
 |---|---|
-| `npm run dev` | Start Vite dev server |
-| `npm run build` | Production build |
-| `npm run build:dev` | Development build (unminified) |
-| `npm run preview` | Preview production build locally |
-| `npm run lint` | Run ESLint |
-| `npm run format` | Format code with Prettier |
-| `npm run push:files` | Commit and push each changed file separately |
+| `npm run install:all` | Install root, client, and server dependencies |
+| `npm run dev:client` | Start the Vite client dev server |
+| `npm run dev:server` | Start the Express API server with `tsx watch` |
+| `npm run build:client` | Build the React client |
+| `npm run build:server` | Compile the TypeScript server |
+| `npm run restructure` | Run the project restructuring/finalization helper |
 
-To preview the per-file GitHub push workflow without changing Git history, run:
+Client-only scripts can also be run from `client/`, and server-only scripts can be run from `server/`.
 
-```bash
-npm run push:files -- --dry-run
-```
+## Notes
 
-You can also push selected files only:
+- The root `package.json` no longer exposes a single `npm run dev`; run the client and server separately.
+- The client expects the server URL from `VITE_API_URL`.
+- Server data is stored in a local SQLite database through `better-sqlite3`.
+- `.workspace/` and `.wrangler/` contain local development/runtime state from the current project setup.
 
-```bash
-npm run push:files -- src/routes/index.tsx README.md
-```
-
----
-
-## 📄 License
+## License
 
 MIT
