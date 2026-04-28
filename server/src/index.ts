@@ -18,7 +18,7 @@ import { handleGeminiChat } from "./gemini.js";
 import { handleSaveShipment, handleLogAnalyticsEvent, handleGetShipments, handleGetShipmentById, handleDeleteShipment, handleGetDashboardStats } from "./db-functions.js";
 
 app.get("/", (req, res) => {
-  res.send("Server is running 🚀");
+  res.send("HELLO NEW DEPLOY 🚀");
 });
 
 app.post("/api/planRoute", handlePlanRoute);
