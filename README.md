@@ -47,6 +47,7 @@ The project is now split into a standalone React client, an Express API server, 
 |   |   +-- styles.css               # Tailwind/design system
 |   +-- package.json
 |   +-- vite.config.ts
+|   +-- tsconfig.json
 +-- server/
 |   +-- src/
 |   |   +-- index.ts                 # Express server and API routes
@@ -54,22 +55,25 @@ The project is now split into a standalone React client, an Express API server, 
 |   |   +-- gemini.ts                # Flo/Gemini API handler
 |   |   +-- db.ts                    # SQLite connection
 |   |   +-- db-functions.ts          # Shipment/history/stat handlers
+|   +-- dist/                        # Compiled TypeScript output (after build)
 |   +-- package.json
+|   +-- tsconfig.json
 +-- shared/
 |   +-- supply-chain.ts              # Shared logistics types and pure logic
-+-- src/                             # Legacy/source compatibility files
-+-- migrations/                      # Database migration assets
-+-- scripts/                         # Utility scripts
-+-- package.json                     # Root workspace-style scripts
-+-- tsconfig.json
++-- migrations/
+|   +-- 0001_init.sql                # Database schema initialization
++-- scripts/
+|   +-- per-file-push.mjs            # Utility script for deployment
++-- package.json                     # Root workspace scripts
++-- tsconfig.json                    # Root TypeScript config
 ```
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+
-- npm
+- Node.js 18+ (with npm)
+- For native dependencies: Python 3.x and a C++ compiler (required for `better-sqlite3` compilation)
 
 ### Install dependencies
 
@@ -111,11 +115,17 @@ GEMINI_API_KEY=your_gemini_api_key_here
 MAPTILER_KEY=your_maptiler_key_here
 ```
 
-API keys are optional for basic route planning. Without the API server, the client falls back to local route-planning logic for core planning actions.
+**Environment variable notes:**
+- `VITE_API_URL`: Required for client to communicate with the server. Defaults to `http://localhost:3001` in development.
+- `VITE_MAPTILER_KEY` and `VITE_GOOGLE_MAPS_KEY`: Optional. Without these, the client falls back to MapLibre GL with basic map tiles.
+- `GEMINI_API_KEY`: Optional. Without this, the Flo assistant will not be available, but core route planning works.
+- `MAPTILER_KEY`: Optional. Used by the server for enhanced map features.
+
+Without the API server running, the client falls back to local route-planning logic for core planning actions.
 
 ### Run locally
 
-Start the API server:
+Start the API server (compiles TypeScript on first run):
 
 ```bash
 npm run dev:server
@@ -139,6 +149,8 @@ The API server runs on:
 http://localhost:3001
 ```
 
+The SQLite database is created automatically on first server startup at `data.db` in the root directory.
+
 ### Build
 
 Build the client:
@@ -147,10 +159,16 @@ Build the client:
 npm run build:client
 ```
 
-Build the server:
+Build the server (compiles TypeScript to `server/dist/`):
 
 ```bash
 npm run build:server
+```
+
+Run the compiled server:
+
+```bash
+npm run start --prefix server
 ```
 
 ## API Routes
@@ -171,6 +189,12 @@ The Express server exposes these endpoints under `/api`:
 | GET | `/api/getShipmentById` | Load one saved shipment |
 | POST | `/api/deleteShipment` | Delete a saved shipment |
 | GET | `/api/getDashboardStats` | Load dashboard summary stats |
+
+**Request/Response Format:**
+- All endpoints accept and return JSON.
+- POST endpoints expect a JSON body with parameters specific to each route.
+- GET endpoints may accept query parameters (e.g., `?id=shipment-123`).
+- Errors are returned with appropriate HTTP status codes and error messages in the response body.
 
 ## Transport Decision Logic
 
@@ -213,20 +237,41 @@ Land route
 | Command | Description |
 |---|---|
 | `npm run install:all` | Install root, client, and server dependencies |
-| `npm run dev:client` | Start the Vite client dev server |
-| `npm run dev:server` | Start the Express API server with `tsx watch` |
-| `npm run build:client` | Build the React client |
-| `npm run build:server` | Compile the TypeScript server |
+| `npm run dev:client` | Start the Vite client dev server on port 5173 |
+| `npm run dev:server` | Start the Express API server with `tsx watch` on port 3001 |
+| `npm run build:client` | Build the React client for production |
+| `npm run build:server` | Compile the TypeScript server to `server/dist/` |
 | `npm run restructure` | Run the project restructuring/finalization helper |
 
-Client-only scripts can also be run from `client/`, and server-only scripts can be run from `server/`.
+Client-only scripts can also be run from `client/` (e.g., `npm run dev --prefix client`), and server-only scripts can be run from `server/` (e.g., `npm run build --prefix server`).
 
 ## Notes
 
-- The root `package.json` no longer exposes a single `npm run dev`; run the client and server separately.
-- The client expects the server URL from `VITE_API_URL`.
-- Server data is stored in a local SQLite database through `better-sqlite3`.
-- `.workspace/` and `.wrangler/` contain local development/runtime state from the current project setup.
+- The root `package.json` provides workspace-level scripts. Run `npm run dev:client` and `npm run dev:server` in separate terminals.
+- The client expects the server URL from `VITE_API_URL` environment variable.
+- Server data is stored in a local SQLite database (`data.db`) using `better-sqlite3`.
+- The database schema is defined in `migrations/0001_init.sql` and is initialized automatically on first server startup.
+- `.workspace/` contains local development logs and state.
+- `.wrangler/` contains Wrangler CLI state (if using Cloudflare Workers deployment).
+
+## Troubleshooting
+
+**Server fails to start with "better-sqlite3" error:**
+- Ensure you have Python 3.x and a C++ compiler installed (Visual Studio Build Tools on Windows, Xcode on macOS, build-essential on Linux).
+- Try deleting `node_modules/` and `server/node_modules/` and running `npm run install:all` again.
+
+**Client cannot connect to server:**
+- Verify the server is running on port 3001.
+- Check that `VITE_API_URL` in `client/.env` matches the server URL.
+- Check browser console for CORS errors.
+
+**Database errors on startup:**
+- Ensure `data.db` is not locked by another process.
+- Try deleting `data.db` and `data.db-*` files to reset the database.
+
+**Gemini assistant not responding:**
+- Verify `GEMINI_API_KEY` is set in `server/.env`.
+- Check that the API key is valid and has quota remaining.
 
 ## License
 
