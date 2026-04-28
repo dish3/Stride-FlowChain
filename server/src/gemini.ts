@@ -1,8 +1,8 @@
-import { createServerFn } from "@tanstack/react-start";
-import type { RouteResult } from "@/lib/supply-chain";
-import { COST_PER_KM, CO2_PER_KM, SPEED, CITIES } from "@/lib/supply-chain";
+import { Request, Response } from "express";
 
-// ─── Gemini AI Chat ───────────────────────────────────────────────────────────
+
+// We import the shared logic here. Since it's in a shared folder, we can use relative paths or typescript aliases if configured.
+import { COST_PER_KM, CO2_PER_KM, SPEED, CITIES, type RouteResult } from "../../shared/supply-chain.js";
 
 interface ChatMessage {
   role: "user" | "model";
@@ -32,8 +32,6 @@ interface GeminiApiResponse {
   };
 }
 
-// ─── Live Weather via Open-Meteo (free, no API key) ──────────────────────────
-
 interface WeatherSnapshot {
   city: string;
   temp: number;
@@ -45,7 +43,6 @@ interface WeatherSnapshot {
   main: string;
 }
 
-// WMO weather codes → human-readable descriptions & categories
 function decodeWMO(code: number): { main: string; description: string } {
   if (code === 0) return { main: "Clear", description: "clear sky" };
   if (code <= 3) return { main: "Clouds", description: code === 1 ? "mainly clear" : code === 2 ? "partly cloudy" : "overcast" };
@@ -68,7 +65,7 @@ async function fetchWeatherForCity(cityName: string): Promise<WeatherSnapshot | 
       `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,visibility&timezone=auto`,
     );
     if (!res.ok) return null;
-    const d = await res.json();
+    const d = await res.json() as any;
     const current = d.current;
     const { main, description } = decodeWMO(current.weather_code ?? 0);
     return {
@@ -103,8 +100,6 @@ function formatWeather(label: string, w: WeatherSnapshot | null): string {
   Visibility: ${w.visibility_km} km
   Logistics impact: ${severity}`;
 }
-
-// ─── System Prompt Builder ────────────────────────────────────────────────────
 
 function buildSystemPrompt(
   route: RouteResult | null,
@@ -150,7 +145,6 @@ CURRENT STATE: No shipment is planned yet. Guide the user to fill in the shipmen
   const srcCity = CITIES[r.source];
   const dstCity = CITIES[r.destination];
 
-  // Calculate all mode stats for context
   const modes = (["Air ✈️", "Ship 🚢", "Train 🚆", "Truck 🚛"] as const).map((t) => ({
     mode: t,
     eta: +(r.distance / SPEED[t] + (t === "Ship 🚢" ? 48 : 2)).toFixed(1),
@@ -162,7 +156,6 @@ CURRENT STATE: No shipment is planned yet. Guide the user to fill in the shipmen
     .map((m) => `  ${m.mode}: ETA ${m.eta}h, Cost ₹${m.cost.toLocaleString()}, CO₂ ${m.co2}kg`)
     .join("\n");
 
-  // Build live weather section
   const weatherLines: string[] = [];
   if (srcWeather) weatherLines.push(formatWeather(`Source — ${r.source}`, srcWeather));
   if (dstWeather) weatherLines.push(formatWeather(`Destination — ${r.destination}`, dstWeather));
@@ -201,89 +194,76 @@ AI REASONING:
 ${r.reasoning?.map((line) => `- ${line}`).join("\n") ?? "N/A"}${weatherSection}`;
 }
 
-// ─── Server Function ──────────────────────────────────────────────────────────
+export const handleGeminiChat = async (req: Request, res: Response) => {
+  const data = req.body as GeminiChatInput;
+  if (!data.message || typeof data.message !== "string") {
+    return res.status(400).json({ error: "Message is required" });
+  }
 
-export const geminiChat = createServerFn({ method: "POST" })
-  .inputValidator((input: GeminiChatInput) => {
-    if (!input.message || typeof input.message !== "string") {
-      throw new Error("Message is required");
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.json({
+      reply: "⚠️ Gemini API key not configured. Add `GEMINI_API_KEY` to your `.env` file on the server to enable AI chat.",
+    });
+  }
+
+  try {
+    const sourceName = data.route?.source;
+    const destName = data.route?.destination;
+    const [srcWeather, dstWeather] = await Promise.all([
+      sourceName ? fetchWeatherForCity(sourceName) : Promise.resolve(null),
+      destName ? fetchWeatherForCity(destName) : Promise.resolve(null),
+    ]);
+
+    const contents: GeminiContent[] = data.history.map((msg) => ({
+      role: msg.role === "user" ? "user" : "model",
+      parts: [{ text: msg.text }],
+    }));
+    contents.push({ role: "user", parts: [{ text: data.message }] });
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: buildSystemPrompt(data.route, srcWeather, dstWeather) }],
+          },
+          contents,
+          generationConfig: {
+            temperature: 0.6,
+            maxOutputTokens: 700,
+          },
+        }),
+      },
+    );
+
+    const payload = (await response.json()) as GeminiApiResponse;
+    if (!response.ok || payload.error) {
+      throw new Error(payload.error?.message ?? `Gemini request failed with ${response.status}`);
     }
-    return input;
-  })
-  .handler(async ({ data }) => {
-    const apiKey =
-      process.env.GEMINI_API_KEY ??
-      (import.meta as any).env?.GEMINI_API_KEY ??
-      (import.meta as any).env?.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      return {
-        reply:
-          "⚠️ Gemini API key not configured. Add `GEMINI_API_KEY` to your `.env` file to enable AI chat.",
-      };
+
+    const text = payload.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text ?? "")
+      .join("")
+      .trim();
+
+    return res.json({
+      reply: text || "I could not generate a response from Gemini just now. Try asking again in a moment.",
+    });
+  } catch (error: any) {
+    console.error("Gemini API error:", error);
+
+    if (error?.message?.includes("API_KEY_INVALID")) {
+      return res.json({ reply: "⚠️ The Gemini API key is invalid. Please check your `.env` file." });
+    }
+    if (error?.message?.includes("QUOTA")) {
+      return res.json({ reply: "⚠️ Gemini API quota exceeded. Please try again later or check your billing." });
     }
 
-    try {
-      // Fetch live weather for source and destination in parallel
-      const sourceName = data.route?.source;
-      const destName = data.route?.destination;
-      const [srcWeather, dstWeather] = await Promise.all([
-        sourceName ? fetchWeatherForCity(sourceName) : Promise.resolve(null),
-        destName ? fetchWeatherForCity(destName) : Promise.resolve(null),
-      ]);
-
-      const contents: GeminiContent[] = data.history.map((msg) => ({
-        role: msg.role === "user" ? ("user" as const) : ("model" as const),
-        parts: [{ text: msg.text }],
-      }));
-      contents.push({ role: "user", parts: [{ text: data.message }] });
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: {
-              parts: [{ text: buildSystemPrompt(data.route, srcWeather, dstWeather) }],
-            },
-            contents,
-            generationConfig: {
-              temperature: 0.6,
-              maxOutputTokens: 700,
-            },
-          }),
-        },
-      );
-
-      const payload = (await response.json()) as GeminiApiResponse;
-      if (!response.ok || payload.error) {
-        throw new Error(payload.error?.message ?? `Gemini request failed with ${response.status}`);
-      }
-
-      const text = payload.candidates?.[0]?.content?.parts
-        ?.map((part) => part.text ?? "")
-        .join("")
-        .trim();
-
-      return {
-        reply: text || "I could not generate a response from Gemini just now. Try asking again in a moment.",
-      };
-    } catch (error: any) {
-      console.error("Gemini API error:", error);
-
-      if (error?.message?.includes("API_KEY_INVALID")) {
-        return {
-          reply: "⚠️ The Gemini API key is invalid. Please check your `.env` file.",
-        };
-      }
-      if (error?.message?.includes("QUOTA")) {
-        return {
-          reply: "⚠️ Gemini API quota exceeded. Please try again later or check your billing.",
-        };
-      }
-
-      return {
-        reply: `I had trouble connecting to Gemini. Error: ${error?.message ?? "Unknown error"}. I can still help with the basics — try asking about **cost**, **ETA**, or **CO₂**!`,
-      };
-    }
-  });
+    return res.json({
+      reply: `I had trouble connecting to Gemini. Error: ${error?.message ?? "Unknown error"}. I can still help with the basics — try asking about **cost**, **ETA**, or **CO₂**!`,
+    });
+  }
+};

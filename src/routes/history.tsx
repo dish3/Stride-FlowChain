@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/lib/api";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import {
   ArrowLeft,
@@ -9,14 +9,12 @@ import {
   ChevronRight,
   Clock,
   DollarSign,
-  Leaf,
   Loader2,
   MapPin,
   Package,
   Plane,
   Route as RouteIcon,
   Ship,
-  Sparkles,
   Target,
   TrainFront,
   Trash2,
@@ -30,9 +28,9 @@ import {
   getShipments,
   getDashboardStats,
   deleteShipment,
-} from "@/server/db.functions";
+} from "@/lib/api";
 
-export const Route = createFileRoute("/history")({
+export const Route = createFileRoute("/history" as never)({
   head: () => ({
     meta: [
       { title: "FlowChain — Shipment History" },

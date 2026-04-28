@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/lib/api";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   Activity,
@@ -51,8 +51,8 @@ import {
   planRoute,
   planRouteWithTransport,
   simulateDisruption,
-} from "@/server/supply-chain.functions";
-import { saveShipment, logAnalyticsEvent } from "@/server/db.functions";
+} from "@/lib/api";
+import { saveShipment, logAnalyticsEvent } from "@/lib/api";
 import { MapView } from "@/components/supply-chain/MapView";
 import { StatCard } from "@/components/supply-chain/StatCard";
 import { RiskBadge } from "@/components/supply-chain/RiskBadge";
@@ -74,7 +74,7 @@ import {
   whatIfMessage,
 } from "@/lib/assistant";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/" as never)({
   head: () => ({
     meta: [
       { title: "FlowChain — AI Smart Supply Chain" },
@@ -167,7 +167,7 @@ function Index() {
       pushMessages(planMessages(res));
       router.invalidate();
       // Auto-save to D1 database
-      saveFn({ data: { route: res } }).catch((e) => console.warn("[DB] Save failed:", e));
+      saveFn({ data: { route: res } }).catch((e: unknown) => console.warn("[DB] Save failed:", e));
     });
 
   // Auto-plan demo scenario on first mount so judges see results immediately.
@@ -401,13 +401,11 @@ function Index() {
               source={source}
               destination={destination}
               distance={haversineKm(source, destination)}
-              weight={weight}
               selected={selectedTransport}
               aiRecommended={aiRecommended}
               onSelect={(t) => {
                 setSelectedTransport(t);
               }}
-              current={current}
               disabled={pending}
             />
 

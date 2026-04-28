@@ -1,0 +1,26 @@
+
+> stride-flowchain-client@0.0.0 dev
+> vite --host 127.0.0.1
+
+
+  [32m[1mVITE[22m v7.3.2[39m  [2mready in [0m[1m1415[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2m6:34:07 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles.css, /src/routes/history.tsx, /src/routes/index.tsx, /src/components/supply-chain/AssistantPanel.tsx[22m
+[2m6:36:24 pm[22m [36m[1m[vite][22m[39m [32mvite.config.ts changed, restarting server...[39m
+[2m6:36:24 pm[22m [36m[1m[vite][22m[39m server restarted.
+[2m6:41:31 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles.css, /src/components/supply-chain/TransportSelector.tsx[22m
+[2m6:41:31 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/routes/index.tsx, /src/styles.css[22m
+[2m6:42:13 pm[22m [36m[1m[vite][22m[39m changed tsconfig file detected: E:/PROJECTS/GOOGLE/project/client/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+[2m6:42:13 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles.css, /src/components/supply-chain/map/GoogleMapsView.tsx[22m
+[2m6:42:13 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles.css, /src/components/supply-chain/map/MapLibreView.tsx[22m
+[2m6:42:13 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/styles.css, /src/components/supply-chain/MapView.tsx, /src/components/supply-chain/map/MapLibreView.tsx, /src/components/supply-chain/map/GoogleMapsView.tsx[22m
+[2m6:42:14 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/routes/__root.tsx, /src/styles.css[22m
+[2m6:42:14 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/routes/history.tsx, /src/styles.css[22m
+[2m6:42:14 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/routes/index.tsx, /src/styles.css[22m
+[2m6:44:15 pm[22m [36m[1m[vite][22m[39m changed tsconfig file detected: E:/PROJECTS/GOOGLE/project/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+[2m6:44:23 pm[22m [36m[1m[vite][22m[39m changed tsconfig file detected: E:/PROJECTS/GOOGLE/project/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+[2m6:44:43 pm[22m [36m[1m[vite][22m[39m changed tsconfig file detected: E:/PROJECTS/GOOGLE/project/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+[2m6:45:24 pm[22m [36m[1m[vite][22m[39m changed tsconfig file detected: E:/PROJECTS/GOOGLE/project/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+[2m6:46:45 pm[22m [36m[1m[vite][22m[39m changed tsconfig file detected: E:/PROJECTS/GOOGLE/project/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.

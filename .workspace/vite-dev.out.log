@@ -1,0 +1,17 @@
+
+> dev
+> vite dev --host 127.0.0.1
+
+Port 8080 is in use, trying another one...
+
+  [32m[1mVITE[22m v7.3.2[39m  [2mready in [0m[1m2491[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m8081[22m/[39m
+[vite] connected.
+[2m3:54:29 pm[22m [36m[1m[vite][22m[39m [34m[2m(ssr)[22m[39m [32mpage reload [39m[2msrc/components/supply-chain/AssistantPanel.tsx[22m
+[vite] program reload
+[2m3:54:42 pm[22m [36m[1m[vite][22m[39m [34m[2m(ssr)[22m[39m [32mpage reload [39m[2msrc/routes/index.tsx[22m
+[2m3:55:13 pm[22m [36m[1m[vite][22m[39m [32m.env changed, restarting server...[39m
+[2m3:55:14 pm[22m [36m[1m[vite][22m[39m server restarted.
+[2m4:02:18 pm[22m [36m[1m[vite][22m[39m [32m.env changed, restarting server...[39m
+[2m4:02:18 pm[22m [36m[1m[vite][22m[39m server restarted.

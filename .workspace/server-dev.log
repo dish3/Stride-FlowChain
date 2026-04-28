@@ -1,0 +1,5 @@
+
+> stride-flowchain-server@1.0.0 dev
+> tsx watch src/index.ts
+
+Server running on port 3001
