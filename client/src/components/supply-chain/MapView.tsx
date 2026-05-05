@@ -132,6 +132,7 @@ function FallbackMap({ source, destination, optimized, disrupted, transport }: M
   const a = CITIES[source];
   const b = CITIES[destination];
   const isShip = transport?.includes("Ship");
+  const isAir = transport?.includes("Air");
 
   // Simple equirectangular world projection onto a 600×340 canvas.
   const project = (lat: number, lng: number) => ({
@@ -141,8 +142,8 @@ function FallbackMap({ source, destination, optimized, disrupted, transport }: M
 
   const pa = project(a.lat, a.lng);
   const pb = project(b.lat, b.lng);
-  // Ship = ocean blue, optimized = mint, disrupted = amber, default = teal
-  const stroke = optimized ? "#73ffb8" : disrupted ? "#f59e0b" : isShip ? "#38bdf8" : "#2dd4a8";
+  // Ship = ocean blue, optimized = mint, disrupted = amber, air = purple, default = teal
+  const stroke = optimized ? "#73ffb8" : disrupted ? "#f59e0b" : isShip ? "#38bdf8" : isAir ? "#a78bfa" : "#2dd4a8";
 
   const progress = useDrawProgress(`fallback:${source}->${destination}`);
   const lineLength = Math.hypot(pb.x - pa.x, pb.y - pa.y);
@@ -152,51 +153,78 @@ function FallbackMap({ source, destination, optimized, disrupted, transport }: M
     <svg viewBox="0 0 600 340" className="h-full w-full">
       <defs>
         <radialGradient id="bg" cx="50%" cy="40%" r="70%">
-          <stop offset="0%" stopColor="#1b4332" stopOpacity="0.5" />
+          <stop offset="0%" stopColor="#1b4332" stopOpacity="0.6" />
           <stop offset="100%" stopColor="#0d1b2a" stopOpacity="1" />
         </radialGradient>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
       <rect width="600" height="340" fill="url(#bg)" />
 
       {/* Subtle world grid lines */}
       {[-60, -30, 0, 30, 60].map((lat) => {
         const y = ((85 - lat) / 170) * 340;
-        return <line key={`lat${lat}`} x1="0" y1={y} x2="600" y2={y} stroke="#2dd4a8" strokeOpacity="0.08" strokeWidth="1" />;
+        return <line key={`lat${lat}`} x1="0" y1={y} x2="600" y2={y} stroke="#2dd4a8" strokeOpacity="0.06" strokeWidth="1" />;
       })}
       {[-120, -60, 0, 60, 120].map((lng) => {
         const x = ((lng + 180) / 360) * 600;
-        return <line key={`lng${lng}`} x1={x} y1="0" x2={x} y2="340" stroke="#2dd4a8" strokeOpacity="0.08" strokeWidth="1" />;
+        return <line key={`lng${lng}`} x1={x} y1="0" x2={x} y2="340" stroke="#2dd4a8" strokeOpacity="0.06" strokeWidth="1" />;
       })}
 
-      {/* Route line — ship gets a dashed sea-lane style */}
+      {/* Route line glow */}
       <line
         x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
         stroke={stroke}
-        strokeWidth={isShip ? 4 : 3}
+        strokeWidth={isShip ? 8 : isAir ? 6 : 8}
         strokeDasharray={
           disrupted ? "8 6" :
           isShip ? "10 6" :
+          isAir ? "5 3" :
           `${lineLength} ${lineLength}`
         }
-        strokeDashoffset={disrupted || isShip ? 0 : dashOffset}
-        opacity="0.9"
+        strokeDashoffset={disrupted || isShip || isAir ? 0 : dashOffset}
+        opacity="0.2"
+        filter="url(#glow)"
       />
 
-      {/* City markers */}
+      {/* Route line — ship gets a dashed sea-lane style, air gets dashed */}
+      <line
+        x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
+        stroke={stroke}
+        strokeWidth={isShip ? 4 : isAir ? 3 : 3}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeDasharray={
+          disrupted ? "8 6" :
+          isShip ? "10 6" :
+          isAir ? "5 3" :
+          `${lineLength} ${lineLength}`
+        }
+        strokeDashoffset={disrupted || isShip || isAir ? 0 : dashOffset}
+        opacity="0.95"
+      />
+
+      {/* City markers with glow */}
       {[{ p: pa, label: source }, { p: pb, label: destination }].map(({ p, label }) => (
         <g key={label}>
-          <circle cx={p.x} cy={p.y} r="9" fill={stroke} />
-          <circle cx={p.x} cy={p.y} r="14" fill={stroke} opacity="0.25" />
-          <text x={p.x + 14} y={p.y + 4} fill="#e6fff7" fontSize="12" fontWeight="600">
+          <circle cx={p.x} cy={p.y} r="12" fill={stroke} opacity="0.3" />
+          <circle cx={p.x} cy={p.y} r="8" fill={stroke} />
+          <circle cx={p.x} cy={p.y} r="6" fill="white" opacity="0.4" />
+          <text x={p.x + 16} y={p.y + 5} fill="#e6fff7" fontSize="13" fontWeight="700" letterSpacing="0.5">
             {label}
           </text>
         </g>
       ))}
 
       {/* Transport label in corner */}
-      {isShip && (
-        <text x="10" y="330" fill={stroke} fontSize="11" opacity="0.7">
-          🚢 Sea freight route
+      {transport && (
+        <text x="12" y="330" fill={stroke} fontSize="12" fontWeight="600" opacity="0.8">
+          {transport}
         </text>
       )}
     </svg>

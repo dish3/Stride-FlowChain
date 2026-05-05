@@ -21,7 +21,7 @@ import {
   type Urgency,
 } from "@/lib/supply-chain";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const API_URL = import.meta.env.VITE_API_URL;
 
 export async function callApi(endpoint: string, data: any) {
   const res = await fetch(`${API_URL}/api/${endpoint}`, {

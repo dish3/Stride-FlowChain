@@ -13,10 +13,10 @@ interface TransportSelectorProps {
 }
 
 const MODES: { id: Transport; emoji: string; label: string; color: string; bgColor: string; borderColor: string }[] = [
-  { id: "Air ✈️",   emoji: "✈️", label: "Air",   color: "text-violet-400",  bgColor: "bg-violet-500/10",  borderColor: "border-violet-500/40" },
-  { id: "Ship 🚢",  emoji: "🚢", label: "Ship",  color: "text-sky-400",     bgColor: "bg-sky-500/10",     borderColor: "border-sky-500/40" },
-  { id: "Train 🚆", emoji: "🚆", label: "Train", color: "text-emerald-400", bgColor: "bg-emerald-500/10", borderColor: "border-emerald-500/40" },
-  { id: "Truck 🚛", emoji: "🚛", label: "Truck", color: "text-amber-400",   bgColor: "bg-amber-500/10",   borderColor: "border-amber-500/40" },
+  { id: "Air ✈️",   emoji: "✈️", label: "Air",   color: "text-blue-400",    bgColor: "bg-blue-500/10",    borderColor: "border-blue-500/40" },
+  { id: "Ship 🚢",  emoji: "🚢", label: "Ship",  color: "text-cyan-400",    bgColor: "bg-cyan-500/10",    borderColor: "border-cyan-500/40" },
+  { id: "Train 🚆", emoji: "🚆", label: "Train", color: "text-green-400",   bgColor: "bg-green-500/10",   borderColor: "border-green-500/40" },
+  { id: "Truck 🚛", emoji: "🚛", label: "Truck", color: "text-yellow-400",  bgColor: "bg-yellow-500/10",  borderColor: "border-yellow-500/40" },
 ];
 
 function isViable(transport: Transport, source: string, destination: string): boolean {
@@ -75,23 +75,23 @@ export function TransportSelector({
               disabled={disabled || !viable}
               title={!viable ? "Not viable for this route" : undefined}
               className={cn(
-                "relative flex flex-col items-center gap-1.5 rounded-xl border p-3 text-xs font-medium transition-all",
+                "relative flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 text-xs font-medium transition-all duration-200",
                 isSelected
-                  ? `${mode.bgColor} ${mode.borderColor} ${mode.color} shadow-sm`
+                  ? `${mode.bgColor} ${mode.borderColor} ${mode.color} shadow-lg border-2`
                   : viable
-                    ? "border-border bg-secondary/30 text-muted-foreground hover:border-primary/30 hover:bg-secondary/50"
-                    : "border-border/30 bg-secondary/10 text-muted-foreground/30 cursor-not-allowed",
+                    ? `border-border/50 bg-secondary/20 text-muted-foreground hover:border-primary/50 hover:bg-secondary/40 hover:${mode.color}`
+                    : "border-border/20 bg-secondary/10 text-muted-foreground/40 cursor-not-allowed opacity-50",
               )}
             >
-              <span className="text-xl leading-none">{mode.emoji}</span>
-              <span>{mode.label}</span>
+              <span className="text-2xl leading-none">{mode.emoji}</span>
+              <span className="text-[11px] font-semibold">{mode.label}</span>
               {isAI && (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-[var(--brand-deep)]">
+                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white shadow-md">
                   AI
                 </span>
               )}
               {!viable && (
-                <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-background/40 text-[9px] text-muted-foreground/50">
+                <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-background/50 text-[9px] text-muted-foreground/60 font-semibold">
                   N/A
                 </span>
               )}
@@ -101,14 +101,14 @@ export function TransportSelector({
       </div>
 
       {/* Live comparison table */}
-      <div className="overflow-hidden rounded-xl border border-border/60">
+      <div className="overflow-hidden rounded-xl border-2 border-border/60 bg-secondary/10">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-border/60 bg-secondary/30">
-              <th className="px-3 py-2 text-left font-medium text-muted-foreground">Mode</th>
-              <th className="px-3 py-2 text-right font-medium text-muted-foreground">ETA</th>
-              <th className="px-3 py-2 text-right font-medium text-muted-foreground">Cost</th>
-              <th className="px-3 py-2 text-right font-medium text-muted-foreground">CO₂</th>
+            <tr className="border-b-2 border-border/60 bg-secondary/40">
+              <th className="px-3 py-2.5 text-left font-semibold text-foreground">Mode</th>
+              <th className="px-3 py-2.5 text-right font-semibold text-foreground">ETA</th>
+              <th className="px-3 py-2.5 text-right font-semibold text-foreground">Cost</th>
+              <th className="px-3 py-2.5 text-right font-semibold text-foreground">CO₂</th>
             </tr>
           </thead>
           <tbody>
@@ -131,34 +131,34 @@ export function TransportSelector({
                   key={mode.id}
                   onClick={() => viable && onSelect(mode.id)}
                   className={cn(
-                    "border-b border-border/40 last:border-0 transition-colors",
-                    viable ? "cursor-pointer" : "opacity-30",
-                    isSelected ? `${mode.bgColor}` : viable ? "hover:bg-secondary/20" : "",
+                    "border-b border-border/40 last:border-0 transition-colors duration-150",
+                    viable ? "cursor-pointer" : "opacity-40",
+                    isSelected ? `${mode.bgColor} border-l-4 ${mode.borderColor}` : viable ? "hover:bg-secondary/30" : "",
                   )}
                 >
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
-                      <span>{mode.emoji}</span>
-                      <span className={cn("font-medium", isSelected ? mode.color : "text-foreground/70")}>
+                      <span className="text-lg">{mode.emoji}</span>
+                      <span className={cn("font-semibold", isSelected ? mode.color : "text-foreground")}>
                         {mode.label}
                       </span>
                       {isAI && (
-                        <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[9px] font-bold uppercase text-primary">
+                        <span className="rounded-full bg-primary/30 px-1.5 py-0.5 text-[8px] font-bold uppercase text-primary">
                           AI
                         </span>
                       )}
                       {!viable && (
-                        <span className="text-[9px] text-muted-foreground/50">N/A</span>
+                        <span className="text-[8px] text-muted-foreground/50 font-semibold">N/A</span>
                       )}
                     </div>
                   </td>
-                  <td className={cn("px-3 py-2.5 text-right font-mono", eta === bestEta && viable ? "text-emerald-400 font-semibold" : "text-foreground/70")}>
+                  <td className={cn("px-3 py-3 text-right font-mono font-semibold", eta === bestEta && viable ? "text-green-400" : "text-foreground/70")}>
                     {viable ? `${eta}h` : "—"}
                   </td>
-                  <td className={cn("px-3 py-2.5 text-right font-mono", cost === bestCost && viable ? "text-emerald-400 font-semibold" : "text-foreground/70")}>
+                  <td className={cn("px-3 py-3 text-right font-mono font-semibold", cost === bestCost && viable ? "text-green-400" : "text-foreground/70")}>
                     {viable ? `₹${cost.toLocaleString()}` : "—"}
                   </td>
-                  <td className={cn("px-3 py-2.5 text-right font-mono", co2 === bestCo2 && viable ? "text-emerald-400 font-semibold" : "text-foreground/70")}>
+                  <td className={cn("px-3 py-3 text-right font-mono font-semibold", co2 === bestCo2 && viable ? "text-green-400" : "text-foreground/70")}>
                     {viable ? `${co2}kg` : "—"}
                   </td>
                 </tr>
@@ -168,8 +168,8 @@ export function TransportSelector({
         </table>
       </div>
 
-      <p className="mt-2 text-[10px] text-muted-foreground">
-        <span className="text-emerald-400 font-semibold">Green</span> = best value · Click any row or button to switch mode · N/A = not viable for this route
+      <p className="mt-3 text-[11px] text-muted-foreground/80 font-medium">
+        <span className="text-green-400 font-bold">Green</span> = best value · Click any row to switch · <span className="text-primary font-bold">AI</span> = recommended
       </p>
     </div>
   );
