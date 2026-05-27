@@ -1,5 +1,5 @@
 # FlowChain - AI Smart Supply Chain
-
+https://stride-flow-chain-6e4njxesa-myweb2358-8117s-projects.vercel.app/
 FlowChain is an AI-powered logistics decision system for planning, simulating, and optimizing freight routes across a global city network. It recommends a transport mode, estimates ETA, cost, CO2 emissions, risk, and explains decisions through the Flo assistant.
 
 The project is now split into a standalone React client, an Express API server, and shared supply-chain logic.
